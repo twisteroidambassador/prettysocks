@@ -13,23 +13,21 @@ proxy server software.
 
 Install and configure [Dante proxy server][2]
 on a dual-stack server, configure your browser to use it, and hit up
-<http://ipv6-test.com/>. In **Browser - Fallback** you will see a big
+<https://ipv6-test.com/>. In **Browser - Fallback** you will see a big
 red **"no"**, and the site will advise you to
 **Upgrade your web browser**.
-Of course, it's not your browser at fault, but the proxy server.
+Of course, it's not your browser at fault, but the proxy server's, for using
+a simple connection algorithm that has not kept up with the times.
 
-That's why I have written `prettysocks`, so that even when using a
-proxy server, my browser still get the benefit of
+The purpose of `prettysocks` is to be a dual-stack friendly proxy server,
+so that browsers behind it still get the benefit of
 Happy Eyeballs and all the goodness of IPv6.
 
 ## Features
 
-`prettysocks` implements these Happy Eyeballs v2 features specified in
-[RFC 8305][1]:
-
-* Asynchronous hostname resolution: IPv6 and IPv4 addresses for a given
-  hostname are resolved in parallel, and connection attempts start
-  before all addresses are resolved.
+Happy Eyeballs v2 is specified in [RFC 8305][1]. There are two implementations
+of Happy Eyeballs that `prettysocks` can use: Python asyncio built-in, or
+the [`async-stagger` module][3]. Both provide the following features:
 
 * Interleaving addresses by family: connection attempts will use IPv6
   and IPv4 addresses alternatively.
@@ -38,11 +36,15 @@ Happy Eyeballs and all the goodness of IPv6.
   does not complete quickly, another attempt to the next address is
   started in parallel. (Delay time between attempts is fixed.)
 
+In addition, `async-stagger` also supports:
+
+* Asynchronous hostname resolution: IPv6 and IPv4 addresses for a given
+  hostname are resolved in parallel, and connection attempts start
+  before all addresses are resolved.
+
 `prettysocks` does not directly implement DNS64 and NAT64. If the
 operating system supports synthesizing IPv6 addresses via
-`getaddrinfo()`, a configuration option can be turned on to utilize
-that feature, by resolving all received IP address literals using
-`getaddrinfo()`.
+`getaddrinfo()`, it might be supported automatically, or it might not.
 
 ### Non-features
 
@@ -60,10 +62,18 @@ future, these features:
 
 ## Requirements
 
-`prettysocks` requires Python 3.6 or higher. It does not have any
-3rd-party dependencies. It is written for running on Linux, but should
-work on other operating systems.
+The `prettysocks` script itself requires Python 3.7 or higher. 
+(It should be possible to make it run on Python 3.6 with minimal modifications.)
 
+If using built-in Happy Eyeballs implementation, Python 3.8.1 or higher is
+required.
+(The implementation was added in 3.8.0, but unfortunately a serious bug was only
+fixed in 3.8.1.)
+
+If using `async-stagger`, the module needs to be installed.
+
+`prettysocks` is written for running on Linux, but should
+work on other operating systems.
 It is most useful on a server with both IPv6 and IPv4 Internet
 connectivity, however there should be no harm in running it on a
 single-stack server.
@@ -82,15 +92,19 @@ Firefox, **"Proxy DNS when using SOCKS v5"** must be turned on.
 If running as a service is desired, write a simple systemd unit
 file for it.
 
-## Future plans
+## Remarks
 
-The next step is to use historical RTT data in address sorting and
-connection attempt delay calculations. This has lead to quite a deep
-rabbit hole, with `ip tcp_metrics`, generic netlink, Linux kernel source
-code, etc etc.
+This project started as an attempt to implement Happy Eyeballs entirely
+in stock `asyncio`, inspired by [the implementation in `trio`.][4]
+I used the same logic for multiple projects, each time writing it from scratch,
+before finally making a standalone module
+<https://github.com/twisteroidambassador/async_stagger>, and eventually
+contributing a simpler version into Python's standard library itself.
 
-If a version utilizing historical RTT is written, it will most likely
-be Linux-only.
+Afterwards, `prettysocks` lay forgotten for quite a while. I am now updating
+it to use these latest implementations of Happy Eyeballs, primarily as
+a testing tool for these implementations, but also in the hope that it can
+be useful as an actual proxy server.
 
 ## License
 
@@ -99,3 +113,5 @@ be Linux-only.
 
 [1]: https://tools.ietf.org/html/rfc8305
 [2]: https://www.inet.no/dante/
+[3]: https://pypi.org/project/async-stagger/
+[4]: https://github.com/python-trio/trio/pull/145/files
