@@ -5,7 +5,7 @@ Python 3.8.1 and up, or from the `async-stagger` module.
 """
 
 """
-Copyright (C) 2018, 2020 twisteroid ambassador
+Copyright (C) 2018, 2020-2021 twisteroid ambassador
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -86,6 +86,14 @@ RelayFnType = Callable[[asyncio.StreamReader,
                        Awaitable[None]]
 
 INADDR_ANY = ipaddress.IPv4Address(0)
+
+# Use the Microsoft "magic escape sequence":
+# https://devblogs.microsoft.com/oldnewthing/20100915-00/?p=12863
+IPV6_LITERAL_HOST_NAME_SUFFIX = ".ipv6-literal.net"
+IPV6_LITERAL_TRANSLATION = str.maketrans({
+    '-': ':',
+    's': '%',
+})
 
 
 class BytesEnum(bytes, enum.Enum):
@@ -201,12 +209,19 @@ class SOCKS5Acceptor:
             elif addr_type is SOCKS5AddressType.DOMAIN_NAME:
                 buf = await dreader.readexactly(1)  # address len
                 uhost = (await dreader.readexactly(buf[0])).decode('utf-8')
-                # Sometimes clients will pass in an IP address literal (such as
-                # "127.0.0.1" as a host name. For example, Firefox does this if
-                # network.proxy.socks_remote_dns is set to True.
-                # However, we don't bother converting them into IPv(4|6)Address
-                # objects here, since we will hand the address to connecting
-                # functions that take strings anyway.
+                if uhost.endswith(IPV6_LITERAL_HOST_NAME_SUFFIX):
+                    self._logger.debug('%s Received IPv6 literal host name %r', log_name, uhost)
+                    ipv6_literal = uhost[:-len(IPV6_LITERAL_HOST_NAME_SUFFIX)].translate(IPV6_LITERAL_TRANSLATION)
+                    try:
+                        ipv6_address = ipaddress.IPv6Address(ipv6_literal)
+                    except ValueError:
+                        self._logger.info('%s Received invalid IPv6 literal host name: %r', log_name, uhost)
+                        await self._reply(
+                            dwriter, SOCKS5Reply.HOST_UNREACHABLE, INADDR_ANY, 0)
+                        raise ValueError('Invalid IPv6 literal host name %r' % uhost)
+                    else:
+                        uhost = ipv6_address
+                        self._logger.info('%s rewriting IPv6 literal host name to address %r', log_name, uhost)
             else:
                 raise ValueError('%s unsupported address type %r'
                                  % (log_name, addr_type))
