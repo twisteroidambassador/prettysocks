@@ -44,7 +44,7 @@ except ImportError:
 
 # ========== Configuration ==========
 
-LISTEN_HOST = ['127.0.0.1', '::1']
+LISTEN_HOST = ['::1']
 LISTEN_PORT = 1080
 LOGLEVEL = logging.INFO
 
@@ -54,7 +54,7 @@ LOGLEVEL = logging.INFO
 (Only available on Python 3.8.1 and up), which does not support asynchronous
 address resolution. When set to False, use implementation in `async_stagger`
 module."""
-USE_BUILTIN_HAPPY_EYEBALLS = False
+USE_BUILTIN_HAPPY_EYEBALLS = True
 
 # The following specify Happy Eyeballs behavior. Refer to RFC 8305 for their
 # definitions.
