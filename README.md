@@ -1,3 +1,47 @@
+# The IPv6 link-local literal hack fork
+
+This fork of `prettysocks` is a workaround for browsers not supporting
+literal IPv6 link-local addresses.
+
+These links document the problem:
+
+<https://ungleich.ch/u/blog/ipv6-link-local-support-in-browsers/>
+
+<https://bugzilla.mozilla.org/show_bug.cgi?id=700999>
+
+The TL;DR is, browsers like Firefox and Chrome do not support IPv6 address
+literals that have a scope ID in them, which means one cannot browse to
+link local IPv6 addresses.
+
+This fork of `prettysocks.py`, apart from being a generic SOCKS5 proxy
+server, also has one additional feature: it will replace [Microsoft's "magic
+escape sequence" ipv6-literal.net host names](https://devblogs.microsoft.com/oldnewthing/20100915-00/?p=12863)
+to the corresponding literal address.
+
+So, say you want to visit `http://[fe80::1ff:fe23:4567:890a%3]` in Firefox.
+Typing that address directly into the address bar will not bring you there, 
+instead Firefox will try to search that in your default search engine.
+Here's how to use `prettysocks` to achieve that:
+
+* Run `prettysocks.py` (Python 3.7+ required). It will start a SOCKS5 proxy 
+listening on `::1` port 1080.
+
+* Configure Firefox to use a SOCKS5 proxy on `::1` port 1080. Don't worry,
+`prettysocks` will pass through normal requests just fine, but you can also
+use a proxy manager add-on to only use this proxy for `*.ipv6-literal.net`.
+
+* Take the IPv6 address literal `fe80::1ff:fe23:4567:890a%3`,
+replace colons `:` with dashes `-`, replace the percent mark `%` with the
+letter `s`, and add a suffix `.ipv6-literal.net`.
+The result is `fe80--1ff-fe23-4567-890as3.ipv6-literal.net`.
+
+* Tack on the protocol part, any port numbers and paths you need, and type
+the URL `http://fe80--1ff-fe23-4567-890as3.ipv6-literal.net` in the address
+bar. Voila!
+
+This should work with any software that can use SOCKS5 proxy servers.
+
+
 # prettysocks
 
 *A proxy server that makes your eyeballs happy*
