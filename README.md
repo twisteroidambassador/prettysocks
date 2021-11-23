@@ -23,8 +23,9 @@ Typing that address directly into the address bar will not bring you there,
 instead Firefox will try to search that in your default search engine.
 Here's how to use `prettysocks` to achieve that:
 
-* Run `prettysocks.py` (Python 3.7+ required). It will start a SOCKS5 proxy 
-listening on `::1` port 1080.
+* Run `prettysocks.py` (Python 3.8.1+ required, or 3.7+ if the
+[`async-stagger` module][3] is installed and the script edited accordingly).
+It will start a SOCKS5 proxy listening on `::1` port 1080.
 
 * Configure Firefox to use a SOCKS5 proxy on `::1` port 1080. Don't worry,
 `prettysocks` will pass through normal requests just fine, but you can also
