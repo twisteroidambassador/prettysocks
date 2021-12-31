@@ -90,10 +90,7 @@ INADDR_ANY = ipaddress.IPv4Address(0)
 # Use the Microsoft "magic escape sequence":
 # https://devblogs.microsoft.com/oldnewthing/20100915-00/?p=12863
 IPV6_LITERAL_HOST_NAME_SUFFIX = ".ipv6-literal.net"
-IPV6_LITERAL_TRANSLATION = str.maketrans({
-    '-': ':',
-    's': '%',
-})
+IPV6_LITERAL_TRANSLATION = lambda s: s.replace('-', ':').replace('s', '%', 1)
 
 
 class BytesEnum(bytes, enum.Enum):
@@ -211,7 +208,7 @@ class SOCKS5Acceptor:
                 uhost = (await dreader.readexactly(buf[0])).decode('utf-8')
                 if uhost.endswith(IPV6_LITERAL_HOST_NAME_SUFFIX):
                     self._logger.debug('%s Received IPv6 literal host name %r', log_name, uhost)
-                    ipv6_literal = uhost[:-len(IPV6_LITERAL_HOST_NAME_SUFFIX)].translate(IPV6_LITERAL_TRANSLATION)
+                    ipv6_literal = IPV6_LITERAL_TRANSLATION(uhost[:-len(IPV6_LITERAL_HOST_NAME_SUFFIX)])
                     try:
                         ipv6_address = ipaddress.IPv6Address(ipv6_literal)
                     except ValueError:
