@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """Simplistic SOCKS5 proxy with Happy Eyeballs for outgoing connections.
 
 Two implementations of Happy Eyeballs can be used: either built-in with
