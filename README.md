@@ -62,15 +62,12 @@ future, these features:
 
 ## Requirements
 
-The `prettysocks` script itself requires Python 3.7 or higher. 
-(It should be possible to make it run on Python 3.6 with minimal modifications.)
+The `prettysocks` script itself requires Python 3.11 or higher. 
 
-If using built-in Happy Eyeballs implementation, Python 3.8.1 or higher is
-required.
-(The implementation was added in 3.8.0, but unfortunately a serious bug was only
-fixed in 3.8.1.)
+If using `async-stagger`, a version >= 0.4.0 must be installed.
 
-If using `async-stagger`, the module needs to be installed.
+(For Python >= 3.7, < 3.11, or `async-stagger` < 0.4.0, use commits up to
+11c646a2f4275025d4637d9c1f1329e1fc5d7e70 )
 
 `prettysocks` is written for running on Linux, but should
 work on other operating systems.

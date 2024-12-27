@@ -2,12 +2,14 @@
 
 """Simplistic SOCKS5 proxy with Happy Eyeballs for outgoing connections.
 
+This script requires Python 3.11+.
+
 Two implementations of Happy Eyeballs can be used: either built-in with
-Python 3.8.1 and up, or from the `async-stagger` module.
+Python, or from the `async-stagger` module (v0.4.0 and up).
 """
 
 """
-Copyright (C) 2018, 2020 twisteroid ambassador
+Copyright (C) 2018 - 2024 twisteroid ambassador
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -33,15 +35,12 @@ import socket
 import sys
 import warnings
 from functools import partial
-from typing import Callable, Awaitable, Tuple, Union
+from collections.abc import Callable, Awaitable
 
 try:
     import async_stagger
-    from async_stagger.exceptions import HappyEyeballsConnectError
 except ImportError:
     async_stagger = None
-    class HappyEyeballsConnectError(Exception):
-        pass
 
 
 # ========== Configuration ==========
@@ -68,15 +67,15 @@ CONNECTION_ATTEMPT_DELAY = 0.25  # seconds
 # ==========
 
 
-IPAddressType = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
-HostType = Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
+IPAddressType = ipaddress.IPv4Address | ipaddress.IPv6Address
+HostType = str | ipaddress.IPv4Address | ipaddress.IPv6Address
 ConnectFnType = Callable[[HostType, int],
-                         Awaitable[Tuple[asyncio.StreamReader,
+                         Awaitable[tuple[asyncio.StreamReader,
                                          asyncio.StreamWriter]]]
 AcceptFnType = Callable[[asyncio.StreamReader,
                          asyncio.StreamWriter,
                          ConnectFnType],
-                        Awaitable[Tuple[HostType,
+                        Awaitable[tuple[HostType,
                                         int,
                                         asyncio.StreamReader,
                                         asyncio.StreamWriter]]]
@@ -130,8 +129,8 @@ class SOCKS5Acceptor:
     _logger = logging.getLogger('socks5')
 
     def _map_exception_to_socks5_reply(self, exc: Exception) -> SOCKS5Reply:
-        if isinstance(exc, HappyEyeballsConnectError):
-            replies = map(self._map_exception_to_socks5_reply, exc.args[0])
+        if isinstance(exc, ExceptionGroup):
+            replies = map(self._map_exception_to_socks5_reply, exc.exceptions)
             reply_counter = collections.Counter(replies)
             reply_counter.pop(SOCKS5Reply.GENERAL_FAILURE, None)
             if reply_counter:
@@ -162,7 +161,7 @@ class SOCKS5Acceptor:
             dreader: asyncio.StreamReader,
             dwriter: asyncio.StreamWriter,
             connector: ConnectFnType,
-    ) -> Tuple[
+    ) -> tuple[
         HostType,
         int,
         asyncio.StreamReader,
@@ -360,7 +359,7 @@ async def handler(
     except asyncio.CancelledError:
         logger.info('%s handler cancelled', log_name)
         raise
-    except (OSError, ValueError, TimeoutError, HappyEyeballsConnectError) as e:
+    except (OSError, ValueError, TimeoutError, ExceptionGroup) as e:
         logger.info('%s exception: %r', log_name, e)
     except Exception as e:
         logger.error('%s exception:', log_name, exc_info=e)
@@ -374,27 +373,29 @@ def sigterm_handler():
 async def builtin_happy_eyeballs_connect(
         host: HostType,
         port: int,
-) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        delay: float,
+        interleave: int,
+) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     return await asyncio.open_connection(
         str(host),
         port,
-        happy_eyeballs_delay=CONNECTION_ATTEMPT_DELAY,
-        interleave=FIRST_ADDRESS_FAMILY_COUNT,
+        happy_eyeballs_delay=delay,
+        interleave=interleave,
     )
 
 
 async def async_stagger_connect(
         host: HostType,
         port: int,
-) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        delay: float,
+        resolver,
+) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     return await async_stagger.open_connection(
         str(host),
         port,
-        delay=CONNECTION_ATTEMPT_DELAY,
-        interleave=FIRST_ADDRESS_FAMILY_COUNT,
-        async_dns=True,
-        resolution_delay=RESOLUTION_DELAY,
-        detailed_exceptions=True,
+        delay=delay,
+        resolver=resolver,
+        raise_exc_group=True,
     )
 
 
@@ -405,7 +406,11 @@ async def amain():
     acceptor = SOCKS5Acceptor()
     relayer = Relayer()
     if USE_BUILTIN_HAPPY_EYEBALLS:
-        connector = builtin_happy_eyeballs_connect
+        connector = partial(
+            builtin_happy_eyeballs_connect,
+            delay=CONNECTION_ATTEMPT_DELAY,
+            interleave=FIRST_ADDRESS_FAMILY_COUNT,
+        )
     else:
         if async_stagger is None:
             raise ImportError(
@@ -413,7 +418,17 @@ async def amain():
                 'To use without async_stagger, set '
                 'USE_BUILTIN_HAPPY_EYEBALLS = True in code.'
             )
-        connector = async_stagger_connect
+        resolver = partial(
+            async_stagger.resolvers.concurrent_resolver,
+            resolution_delay=RESOLUTION_DELAY,
+            first_addr_family_count=FIRST_ADDRESS_FAMILY_COUNT,
+            raise_exc_group=True,
+        )
+        connector = partial(
+            async_stagger_connect,
+            delay=CONNECTION_ATTEMPT_DELAY,
+            resolver=resolver,
+        )
     proxy_handler = partial(
         handler,
         acceptor.accept,
