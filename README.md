@@ -67,7 +67,7 @@ The `prettysocks` script itself requires Python 3.11 or higher.
 If using `async-stagger`, a version >= 0.4.0 must be installed.
 
 (For Python >= 3.7, < 3.11, or `async-stagger` < 0.4.0, use commits up to
-11c646a2f4275025d4637d9c1f1329e1fc5d7e70 )
+https://github.com/twisteroidambassador/prettysocks/commit/11c646a2f4275025d4637d9c1f1329e1fc5d7e70 )
 
 `prettysocks` is written for running on Linux, but should
 work on other operating systems.
